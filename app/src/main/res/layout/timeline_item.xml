@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/timelineItemBackground"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:orientation="vertical" android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/accentLighter">
+
+
+    <TextView
+        android:id="@+id/itemNameTextview"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="16dp"
+        android:textSize="20sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toEndOf="@+id/itemIconImageview"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="Walking" />
+
+    <ImageView
+        android:id="@+id/itemIconImageview"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/item_icon_background"
+        android:padding="12dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintDimensionRatio="1:1"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:srcCompat="@drawable/ic_baseline_directions_run_24px" />
+
+    <TextView
+        android:id="@+id/startTimeTextview"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="Start Time:"
+        android:textAppearance="@android:style/TextAppearance.Material.Small"
+        android:textSize="12sp"
+        app:layout_constraintStart_toStartOf="@+id/itemNameTextview"
+        app:layout_constraintTop_toBottomOf="@+id/itemNameTextview" />
+
+    <TextView
+        android:id="@+id/endTimeTextview"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="8dp"
+        android:text="End Time:"
+        android:textSize="12sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="@+id/startTimeTextview"
+        app:layout_constraintTop_toBottomOf="@+id/startTimeTextview" />
+
+    <TextView
+        android:id="@+id/startTimeValueTextview"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:layout_marginEnd="16dp"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        app:layout_constraintBaseline_toBaselineOf="@+id/startTimeTextview"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toEndOf="@+id/startTimeTextview"
+        tools:text="12:00PM" />
+
+    <TextView
+        android:id="@+id/endTimeValueTextview"
+        android:layout_width="0dp"
+        android:layout_height="20dp"
+        android:layout_marginEnd="16dp"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        app:layout_constraintBaseline_toBaselineOf="@+id/endTimeTextview"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="@+id/startTimeValueTextview"
+        tools:text="1:00PM" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

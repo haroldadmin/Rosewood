@@ -14,16 +14,22 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ShareCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.ContextCompat.startActivity
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModelProviders
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.Scopes
+import com.google.android.gms.common.api.Scope
 import com.google.android.gms.fitness.Fitness
 import com.google.android.gms.fitness.FitnessOptions
 import com.google.android.gms.fitness.data.DataType
 import com.google.android.material.snackbar.Snackbar
 import com.google.gson.GsonBuilder
 import com.haroldadmin.kshitijchauhan.rosewood.R
+import com.haroldadmin.kshitijchauhan.rosewood.R.id.*
+import com.haroldadmin.kshitijchauhan.rosewood.model.TimelineItem
 import com.haroldadmin.kshitijchauhan.rosewood.viewmodel.MainViewModel
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.activity_main.view.*
@@ -32,7 +38,8 @@ import java.io.FileOutputStream
 
 class MainActivity : AppCompatActivity(),
 		BottomNavigationDrawerFragment.FragmentListener,
-		TimelineFragment.RefreshTimelineListener {
+		TimelineFragment.RefreshTimelineListener,
+		FilterListDialogFragment.FilterDialogListener {
 
 	private val FILE_AUTHORITY = "com.haroldadmin.kshitijchauhan.rosewood.fileprovider"
 
@@ -48,20 +55,6 @@ class MainActivity : AppCompatActivity(),
 			.addDataType(DataType.TYPE_ACTIVITY_SEGMENT, FitnessOptions.ACCESS_READ)
 			.build()
 
-	private val usageStatsPermissionDialog: AlertDialog by lazy {
-		AlertDialog.Builder(this)
-				.setTitle("Usage Access permission required")
-				.setMessage("Please grant us access to this permission in the settings app")
-				.setPositiveButton("Settings") { _, _ ->
-					startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-				}
-				.setNegativeButton("Cancel") { dialogInterface, _ ->
-					dialogInterface.dismiss()
-				}
-				.setCancelable(true)
-				.create()
-	}
-
 	@SuppressLint("WrongConstant")
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
@@ -70,26 +63,27 @@ class MainActivity : AppCompatActivity(),
 		setSupportActionBar(bottomAppBar)
 		fab.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_outline_refresh_24px))
 
-		mainViewModel = ViewModelProviders.of(this).get(MainViewModel::class.java)
-		lastSignedInAccount = GoogleSignIn.getLastSignedInAccount(this)
-
-		checkUsageStatsPermission(this)
 		checkGoogleFitPermission(this)
+		checkUsageStatsPermission(this)
 
-		lastSignedInAccount?.let { account ->
-			if (usageStatsPermissionGranted && googleFitPermissionGranted) {
+		mainViewModel = ViewModelProviders.of(this).get(MainViewModel::class.java)
+
+		if (googleFitPermissionGranted && usageStatsPermissionGranted) {
+			lastSignedInAccount = GoogleSignIn.getLastSignedInAccount(this)
+			lastSignedInAccount?.let { account ->
 				mainViewModel.loadData(this, Fitness.getHistoryClient(this, account))
 			}
-		} ?: run {
-			if (!usageStatsPermissionGranted) askForUsageStatsPermission()
-			else askForGoogleFitPermission()
+		} else {
+			startActivity(Intent(this, SignInActivity::class.java))
 		}
 
-		val statsFragment = StatisticsFragment()
-		val fragmentManager = supportFragmentManager
-		fragmentManager.beginTransaction()
-				.replace(R.id.fragmentContainer, statsFragment, "StatisticsFragment")
-				.commit()
+		if (savedInstanceState == null) {
+			val statsFragment = StatisticsFragment()
+			val fragmentManager = supportFragmentManager
+			fragmentManager.beginTransaction()
+					.replace(R.id.fragmentContainer, statsFragment, "StatisticsFragment")
+					.commit()
+		}
 	}
 
 	override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -103,6 +97,14 @@ class MainActivity : AppCompatActivity(),
 		super.onResume()
 		checkGoogleFitPermission(this)
 		checkUsageStatsPermission(this)
+		if (lastSignedInAccount == null && googleFitPermissionGranted && usageStatsPermissionGranted) {
+			lastSignedInAccount = GoogleSignIn.getLastSignedInAccount(this)
+			lastSignedInAccount?.let { account ->
+				if (usageStatsPermissionGranted && googleFitPermissionGranted) {
+					mainViewModel.loadData(this, Fitness.getHistoryClient(this, account))
+				}
+			}
+		}
 	}
 
 	override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -148,18 +150,6 @@ class MainActivity : AppCompatActivity(),
 		return true
 	}
 
-	private fun askForUsageStatsPermission() {
-		if (!usageStatsPermissionDialog.isShowing) usageStatsPermissionDialog.show()
-	}
-
-	private fun askForGoogleFitPermission() {
-		GoogleSignIn.requestPermissions(
-				this,
-				GOOGLE_FIT_PERMISSIONS_REQUEST_CODE,
-				GoogleSignIn.getLastSignedInAccount(this),
-				this.fitnessOptions)
-	}
-
 	private fun checkUsageStatsPermission(context: Context) {
 		val appOpsManager = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
 		val mode = appOpsManager.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName)
@@ -180,13 +170,29 @@ class MainActivity : AppCompatActivity(),
 				}
 			}
 			1 -> {
-				supportFragmentManager.beginTransaction().replace(R.id.fragmentContainer, TimelineFragment(), "StatisticsFragment").commit()
+				supportFragmentManager.beginTransaction().replace(R.id.fragmentContainer, TimelineFragment(), "TimelineFragment").commit()
 				fab.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_outline_filter_list_24px))
+				fab.setOnClickListener {
+					val filterDialog = FilterListDialogFragment()
+					filterDialog.show(supportFragmentManager, "FilterDialog")
+				}
 			}
 		}
 	}
 
 	override fun refreshTimeline() {
 		mainViewModel.loadData(this, Fitness.getHistoryClient(this, lastSignedInAccount!!))
+	}
+
+	override fun filterActivities() {
+		mainViewModel.filterList(TimelineItem.TYPE_PHYSICAL_ACTIVITY)
+	}
+
+	override fun filterAppUsage() {
+		mainViewModel.filterList(TimelineItem.TYPE_APP_USAGE)
+	}
+
+	override fun filterBoth() {
+		mainViewModel.filterList(3)
 	}
 }

@@ -64,7 +64,7 @@ class TimelineItemAdapter(var listOfTimeLineItems: List<TimelineItem>, val glide
 	class TimelineItemsDiffUtil(val oldList: List<TimelineItem>, val newList: List<TimelineItem>) : DiffUtil.Callback() {
 
 		override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-			return false
+			return true
 		}
 
 		override fun getOldListSize(): Int = oldList.size

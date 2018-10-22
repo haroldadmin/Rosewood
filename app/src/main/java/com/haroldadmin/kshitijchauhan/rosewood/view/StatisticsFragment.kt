@@ -30,6 +30,13 @@ class StatisticsFragment : Fragment() {
 				totalEngagementTime.observe(this@StatisticsFragment, Observer {
 					totalEngagementTimeValue.text = "${it / (1000 * 60)} minutes"
 				})
+				isLoading.observe(this@StatisticsFragment, Observer {isLoading ->
+					progressBar.visibility = if (isLoading) {
+						View.VISIBLE
+					} else {
+						View.GONE
+					}
+				})
 			}
 		}
 	}

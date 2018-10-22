@@ -5,12 +5,10 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProviders
 import androidx.recyclerview.widget.DiffUtil
-import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -20,12 +18,14 @@ import com.haroldadmin.kshitijchauhan.rosewood.adapter.TimelineItemAdapter
 import com.haroldadmin.kshitijchauhan.rosewood.model.TimelineItem
 import com.haroldadmin.kshitijchauhan.rosewood.utils.AppExecutors
 import com.haroldadmin.kshitijchauhan.rosewood.viewmodel.MainViewModel
-import kotlinx.android.synthetic.main.fragment_statistics.*
+import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.fragment_timeline.*
 import kotlinx.coroutines.experimental.*
+import java.util.Locale.filter
 import kotlin.coroutines.experimental.CoroutineContext
 
-class TimelineFragment : Fragment(), CoroutineScope {
+class TimelineFragment : Fragment(),
+		CoroutineScope {
 
 	interface RefreshTimelineListener {
 		fun refreshTimeline()
@@ -38,7 +38,6 @@ class TimelineFragment : Fragment(), CoroutineScope {
 	private lateinit var timeLineRecyclerView: RecyclerView
 	private lateinit var mainViewModel: MainViewModel
 	private lateinit var layoutManager: LinearLayoutManager
-	private lateinit var dividerItemDecoration: DividerItemDecoration
 	private lateinit var swipeToRefreshLayout: SwipeRefreshLayout
 	private lateinit var refreshTimelineListener: RefreshTimelineListener
 
@@ -104,10 +103,10 @@ class TimelineFragment : Fragment(), CoroutineScope {
 		swipeToRefreshLayout = timelineSwipeRefreshLayout
 		swipeToRefreshLayout.setOnRefreshListener {
 			this.refreshTimelineListener.refreshTimeline()
-			AppExecutors.workExecutor.execute {
+			launch(AppExecutors.computationDispatcher) {
 				val diffUtil = TimelineItemAdapter.TimelineItemsDiffUtil(adapter.listOfTimeLineItems, emptyList())
 				val result = DiffUtil.calculateDiff(diffUtil)
-				AppExecutors.mainThreadExecutor.execute {
+				withContext(Dispatchers.Main) {
 					adapter.clearAdapter()
 					result.dispatchUpdatesTo(adapter)
 				}
@@ -117,7 +116,6 @@ class TimelineFragment : Fragment(), CoroutineScope {
 
 	private fun calculateDiff(newList: List<TimelineItem>, adapter: TimelineItemAdapter): DiffUtil.DiffResult {
 		val diffCallback = TimelineItemAdapter.TimelineItemsDiffUtil(adapter.listOfTimeLineItems, newList)
-		val diffResult = DiffUtil.calculateDiff(diffCallback)
-		return diffResult
+		return DiffUtil.calculateDiff(diffCallback)
 	}
 }

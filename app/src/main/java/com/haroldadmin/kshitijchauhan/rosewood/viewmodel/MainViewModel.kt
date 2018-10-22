@@ -21,12 +21,18 @@ import com.haroldadmin.kshitijchauhan.rosewood.model.TimelineItem
 import com.haroldadmin.kshitijchauhan.rosewood.repository.Repository
 import com.haroldadmin.kshitijchauhan.rosewood.utils.*
 import io.reactivex.disposables.CompositeDisposable
+import kotlinx.coroutines.experimental.CoroutineScope
+import kotlinx.coroutines.experimental.Dispatchers
+import kotlinx.coroutines.experimental.Job
+import kotlinx.coroutines.experimental.launch
 import java.util.*
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.experimental.CoroutineContext
 
-class MainViewModel(application: Application) : AndroidViewModel(application) {
+class MainViewModel(application: Application) : AndroidViewModel(application), CoroutineScope {
 
 	private val TAG: String = this::class.java.simpleName
+	private val job = Job()
 	private val compositeDisposable = CompositeDisposable()
 	private val isPhysicalActivitiesListLoading = MutableLiveData<Boolean>()
 	private val isAppUsageListLoading = MutableLiveData<Boolean>()
@@ -39,6 +45,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 	private var _combinedItemsList: CombinedLiveData<List<AppUsage>, List<PhysicalActivity>, List<TimelineItem>>
 	private val _timelineItems = MediatorLiveData<List<TimelineItem>>()
 	private val repository = Repository()
+
+	override val coroutineContext: CoroutineContext
+		get() = Dispatchers.Main + job
+
+	private var currentFilter = 3
 
 	val isLoading: LiveData<Boolean>
 		get() = _isLoading
@@ -71,10 +82,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 			val a = app ?: true
 			p || a
 		}
-		_timelineItems.addSource(_combinedItemsList) {
-			_timelineItems.value = it.sortedByDescending { timelineItem ->
-				timelineItem.startTime
-			}
+		_timelineItems.addSource(_combinedItemsList) { list ->
+			_timelineItems.value = list
 		}
 		_totalEngagementTime = CombinedLiveData(_physicalActivityTime, _appUsageTime) { physicalTime, appTime ->
 			val p = physicalTime ?: 0L
@@ -134,14 +143,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 				}
 				.doOnSuccess { list ->
 					_physicalActivityItems.postValue(list)
-					val time = list
-							.asSequence()
-							.filter { physicalActivity -> physicalActivity.name.toLowerCase() != "still" }
-							.map { physicalActivity ->
-								physicalActivity._endTime - physicalActivity._startTime
-							}
-							.reduce { acc, l -> acc + l }
-					_physicalActivityTime.postValue(time)
+					if (!list.isEmpty()) {
+						val time = list
+								.asSequence()
+								.filter { physicalActivity -> physicalActivity.name.toLowerCase() != "still" }
+								.map { physicalActivity ->
+									physicalActivity._endTime - physicalActivity._startTime
+								}
+								.reduce { acc, l -> acc + l }
+						_physicalActivityTime.postValue(time)
+					} else {
+						_physicalActivityTime.postValue(0)
+					}
 					isPhysicalActivitiesListLoading.postValue(false)
 				}
 				.subscribe { list ->
@@ -150,8 +163,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 				.addToCompositeDisposable(compositeDisposable)
 	}
 
+	fun filterList(filter: Int) {
+		when (filter) {
+			TimelineItem.TYPE_APP_USAGE -> {
+				launch(AppExecutors.computationDispatcher) {
+					currentFilter = TimelineItem.TYPE_APP_USAGE
+					val filteredList = _combinedItemsList.value?.filter { it.type == TimelineItem.TYPE_APP_USAGE }
+					_timelineItems.postValue(filteredList)
+				}
+			}
+			TimelineItem.TYPE_PHYSICAL_ACTIVITY -> {
+				launch(AppExecutors.computationDispatcher) {
+					currentFilter = TimelineItem.TYPE_APP_USAGE
+					val filteredList = _combinedItemsList.value?.filter { it.type == TimelineItem.TYPE_PHYSICAL_ACTIVITY }
+					_timelineItems.postValue(filteredList)
+				}
+			}
+			else -> {
+				launch(AppExecutors.computationDispatcher) {
+					currentFilter = TimelineItem.TYPE_APP_USAGE
+					val filteredList = _combinedItemsList.value
+					_timelineItems.postValue(filteredList)
+				}
+			}
+		}
+	}
+
 	override fun onCleared() {
 		super.onCleared()
 		compositeDisposable.dispose()
+		job.cancel()
 	}
 }

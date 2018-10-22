@@ -1,4 +1,4 @@
-package com.haroldadmin.kshitijchauhan.rosewood
+package com.haroldadmin.kshitijchauhan.rosewood.utils
 
 import android.app.usage.UsageEvents
 import android.content.Context
@@ -10,6 +10,10 @@ import com.google.android.gms.fitness.data.DataPoint
 import com.google.android.gms.fitness.data.DataSet
 import com.google.android.gms.fitness.data.Field
 import com.google.android.gms.fitness.request.DataReadRequest
+import com.haroldadmin.kshitijchauhan.rosewood.R
+import com.haroldadmin.kshitijchauhan.rosewood.model.AppUsage
+import com.haroldadmin.kshitijchauhan.rosewood.model.PhysicalActivity
+import com.haroldadmin.kshitijchauhan.rosewood.model.TimelineItem
 import io.reactivex.Observable
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.disposables.Disposable
@@ -27,8 +31,8 @@ fun UsageEvents.toEventsList(): List<UsageEvents.Event> {
 	return list
 }
 
-fun List<UsageEvents.Event>.toAppUsageItemsList(packageManager: PackageManager): List<AppUsageItem> {
-	val eventItemsList = mutableListOf<AppUsageItem>()
+fun List<UsageEvents.Event>.toAppUsageItemsList(packageManager: PackageManager): List<AppUsage> {
+	val eventItemsList = mutableListOf<AppUsage>()
 	val map = this.groupBy { it.packageName }
 	for ((packageName, listOfEvents) in map) {
 		listOfEvents
@@ -37,13 +41,13 @@ fun List<UsageEvents.Event>.toAppUsageItemsList(packageManager: PackageManager):
 					Pair(it[0], it[1])
 				}
 				.mapTo(eventItemsList) {
-					AppUsageItem(packageName.toAppLabel(packageManager), packageManager.getApplicationIcon(packageName), it.first.timeStamp, it.second.timeStamp)
+					AppUsage(packageName.toAppLabel(packageManager), packageManager.getApplicationIcon(packageName), it.first.timeStamp, it.second.timeStamp)
 				}
 	}
 	return eventItemsList
 }
 
-fun List<AppUsageItem>.toTimelineItemsList(): List<TimelineItem> {
+fun List<AppUsage>.toTimelineItemsList(): List<TimelineItem> {
 	return this.map { it as TimelineItem }
 }
 
@@ -75,7 +79,7 @@ fun HistoryClient.getDataSetsObservable(dataReadRequest: DataReadRequest): Obser
 
 }
 
-fun DataPoint.toPhysicalActivityItem(context: Context): PhysicalActivityItem {
+fun DataPoint.toPhysicalActivityItem(context: Context): PhysicalActivity {
 	val activityName = this.getValue(Field.FIELD_ACTIVITY).asActivity().capitalize()
 	val icon = when (activityName.toLowerCase()) {
 		"running" -> ContextCompat.getDrawable(context, R.drawable.ic_baseline_directions_run_24px)!!
@@ -85,7 +89,7 @@ fun DataPoint.toPhysicalActivityItem(context: Context): PhysicalActivityItem {
 	}
 	val startTime = this.getStartTime(TimeUnit.MILLISECONDS)
 	val endTime = this.getEndTime(TimeUnit.MILLISECONDS)
-	return PhysicalActivityItem(activityName, icon, startTime, endTime)
+	return PhysicalActivity(activityName, icon, startTime, endTime)
 }
 
 fun Disposable.addToCompositeDisposable(compositeDisposable: CompositeDisposable) {

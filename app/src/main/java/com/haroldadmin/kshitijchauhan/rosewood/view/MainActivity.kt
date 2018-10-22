@@ -1,16 +1,13 @@
-package com.haroldadmin.kshitijchauhan.rosewood
+package com.haroldadmin.kshitijchauhan.rosewood.view
 
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
 import android.os.Process
 import android.provider.Settings
-import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import androidx.appcompat.app.AlertDialog
@@ -18,14 +15,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ShareCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
-import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProviders
-import androidx.recyclerview.widget.DiffUtil
-import androidx.recyclerview.widget.DividerItemDecoration
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-import com.bumptech.glide.Glide
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.fitness.Fitness
@@ -33,22 +23,21 @@ import com.google.android.gms.fitness.FitnessOptions
 import com.google.android.gms.fitness.data.DataType
 import com.google.android.material.snackbar.Snackbar
 import com.google.gson.GsonBuilder
+import com.haroldadmin.kshitijchauhan.rosewood.R
+import com.haroldadmin.kshitijchauhan.rosewood.viewmodel.MainViewModel
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.android.synthetic.main.activity_main.view.*
 import java.io.File
-import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.io.FileWriter
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(),
+		BottomNavigationDrawerFragment.FragmentListener,
+		TimelineFragment.RefreshTimelineListener {
 
-	private val TAG = this::class.java.simpleName
 	private val FILE_AUTHORITY = "com.haroldadmin.kshitijchauhan.rosewood.fileprovider"
-	private lateinit var adapter: TimelineItemAdapter
-	private lateinit var timeLineRecyclerView: RecyclerView
+
 	private lateinit var mainViewModel: MainViewModel
-	private lateinit var layoutManager: LinearLayoutManager
-	private lateinit var dividerItemDecoration: DividerItemDecoration
-	private lateinit var swipeToRefreshLayout: SwipeRefreshLayout
+
 	private var googleFitPermissionGranted: Boolean = false
 	private var usageStatsPermissionGranted: Boolean = false
 	private var lastSignedInAccount: GoogleSignInAccount? = null
@@ -78,11 +67,12 @@ class MainActivity : AppCompatActivity() {
 		super.onCreate(savedInstanceState)
 		setContentView(R.layout.activity_main)
 
+		setSupportActionBar(bottomAppBar)
+		fab.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_outline_refresh_24px))
+
 		mainViewModel = ViewModelProviders.of(this).get(MainViewModel::class.java)
 		lastSignedInAccount = GoogleSignIn.getLastSignedInAccount(this)
 
-		setupRecyclerView()
-		setupSwipeRefreshLayout()
 		checkUsageStatsPermission(this)
 		checkGoogleFitPermission(this)
 
@@ -95,21 +85,11 @@ class MainActivity : AppCompatActivity() {
 			else askForGoogleFitPermission()
 		}
 
-		mainViewModel.timelineItems
-				.observe(this, Observer { newList ->
-					AppExecutors.workExecutor.execute {
-						val diffUtil = TimelineItemAdapter.TimelineItemsDiffUtil(adapter.listOfTimeLineItems, newList)
-						val result = DiffUtil.calculateDiff(diffUtil)
-						AppExecutors.mainThreadExecutor.execute {
-							adapter.updateList(newList)
-							result.dispatchUpdatesTo(adapter)
-						}
-					}
-				})
-		mainViewModel.isLoading
-				.observe(this, Observer {
-					swipeToRefreshLayout.isRefreshing = it
-				})
+		val statsFragment = StatisticsFragment()
+		val fragmentManager = supportFragmentManager
+		fragmentManager.beginTransaction()
+				.replace(R.id.fragmentContainer, statsFragment, "StatisticsFragment")
+				.commit()
 	}
 
 	override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -126,7 +106,7 @@ class MainActivity : AppCompatActivity() {
 	}
 
 	override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-		menuInflater.inflate(R.menu.main_activity_menu, menu)
+		menuInflater.inflate(R.menu.bottom_app_bar_menu, menu)
 		return true
 	}
 
@@ -145,7 +125,7 @@ class MainActivity : AppCompatActivity() {
 							it.write(json.toByteArray())
 						}
 				val uri = FileProvider.getUriForFile(this, FILE_AUTHORITY, file)
-				Snackbar.make(constraint_layout, "File written successfully", Snackbar.LENGTH_SHORT)
+				Snackbar.make(coordinatorLayout, "File written successfully", Snackbar.LENGTH_LONG)
 						.setAction("Share") {
 							val shareIntent = ShareCompat.IntentBuilder
 									.from(this)
@@ -158,6 +138,10 @@ class MainActivity : AppCompatActivity() {
 							}
 						}
 						.show()
+			}
+			android.R.id.home -> {
+				val bottomNavDrawerFragment = BottomNavigationDrawerFragment()
+				bottomNavDrawerFragment.show(supportFragmentManager, bottomNavDrawerFragment.tag)
 			}
 			else -> super.onOptionsItemSelected(item)
 		}
@@ -176,34 +160,6 @@ class MainActivity : AppCompatActivity() {
 				this.fitnessOptions)
 	}
 
-	private fun setupRecyclerView() {
-		timeLineRecyclerView = recyclerView
-
-		adapter = TimelineItemAdapter(emptyList(), Glide.with(this))
-		layoutManager = LinearLayoutManager(this)
-		dividerItemDecoration = DividerItemDecoration(this, layoutManager.orientation)
-		dividerItemDecoration.setDrawable(ContextCompat.getDrawable(this, R.drawable.list_divider)!!)
-
-		timeLineRecyclerView.layoutManager = layoutManager
-		timeLineRecyclerView.adapter = adapter
-		timeLineRecyclerView.addItemDecoration(dividerItemDecoration)
-	}
-
-	private fun setupSwipeRefreshLayout() {
-		swipeToRefreshLayout = swipeRefreshLayout
-		swipeToRefreshLayout.setOnRefreshListener {
-			mainViewModel.loadData(this, Fitness.getHistoryClient(this, lastSignedInAccount!!))
-			AppExecutors.workExecutor.execute {
-				val diffUtil = TimelineItemAdapter.TimelineItemsDiffUtil(adapter.listOfTimeLineItems, emptyList())
-				val result = DiffUtil.calculateDiff(diffUtil)
-				AppExecutors.mainThreadExecutor.execute {
-					adapter.clearAdapter()
-					result.dispatchUpdatesTo(adapter)
-				}
-			}
-		}
-	}
-
 	private fun checkUsageStatsPermission(context: Context) {
 		val appOpsManager = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
 		val mode = appOpsManager.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName)
@@ -212,5 +168,22 @@ class MainActivity : AppCompatActivity() {
 
 	private fun checkGoogleFitPermission(context: Context) {
 		this.googleFitPermissionGranted = GoogleSignIn.hasPermissions(GoogleSignIn.getLastSignedInAccount(context), this.fitnessOptions)
+	}
+
+	override fun switchFragment(type: Int) {
+		when (type) {
+			0 -> {
+				supportFragmentManager.beginTransaction().replace(R.id.fragmentContainer, StatisticsFragment(), "StatisticsFragment").commit()
+				fab.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_outline_refresh_24px))
+			}
+			1 -> {
+				supportFragmentManager.beginTransaction().replace(R.id.fragmentContainer, TimelineFragment(), "StatisticsFragment").commit()
+				fab.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_outline_filter_list_24px))
+			}
+		}
+	}
+
+	override fun refreshTimeline() {
+		mainViewModel.loadData(this, Fitness.getHistoryClient(this, lastSignedInAccount!!))
 	}
 }

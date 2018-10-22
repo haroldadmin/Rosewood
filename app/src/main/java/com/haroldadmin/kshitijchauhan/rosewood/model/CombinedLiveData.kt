@@ -1,4 +1,4 @@
-package com.haroldadmin.kshitijchauhan.rosewood
+package com.haroldadmin.kshitijchauhan.rosewood.model
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData

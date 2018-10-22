@@ -1,4 +1,4 @@
-package com.haroldadmin.kshitijchauhan.rosewood
+package com.haroldadmin.kshitijchauhan.rosewood.adapter
 
 import android.view.LayoutInflater
 import android.view.View
@@ -9,6 +9,8 @@ import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.RequestManager
+import com.haroldadmin.kshitijchauhan.rosewood.R
+import com.haroldadmin.kshitijchauhan.rosewood.model.TimelineItem
 
 class TimelineItemAdapter(var listOfTimeLineItems: List<TimelineItem>, val glide: RequestManager) : RecyclerView.Adapter<TimelineItemAdapter.ViewHolder>() {
 
@@ -42,9 +44,9 @@ class TimelineItemAdapter(var listOfTimeLineItems: List<TimelineItem>, val glide
 			itemStartTime.text = item.startTime
 			itemEndTime.text = item.endTime
 			if (item.type == TimelineItem.TYPE_PHYSICAL_ACTIVITY) {
-				background.setBackgroundColor(ContextCompat.getColor(itemView.context, R.color.colorPrimaryLight))
+				background.setBackgroundColor(ContextCompat.getColor(itemView.context, R.color.colorAccentLight))
 			} else {
-				background.setBackgroundColor(ContextCompat.getColor(itemView.context, R.color.accentLighter))
+				background.setBackgroundColor(ContextCompat.getColor(itemView.context, R.color.colorPrimaryLight))
 			}
 		}
 	}
@@ -52,8 +54,7 @@ class TimelineItemAdapter(var listOfTimeLineItems: List<TimelineItem>, val glide
 	class TimelineItemsDiffUtil(val oldList: List<TimelineItem>, val newList: List<TimelineItem>) : DiffUtil.Callback() {
 
 		override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-//			return oldList[oldItemPosition] == newList[newItemPosition]
-			return true
+			return false
 		}
 
 		override fun getOldListSize(): Int = oldList.size
@@ -61,7 +62,6 @@ class TimelineItemAdapter(var listOfTimeLineItems: List<TimelineItem>, val glide
 		override fun getNewListSize(): Int = newList.size
 
 		override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-//			return oldList[oldItemPosition].equals(newList[newItemPosition])
 			return false
 		}
 

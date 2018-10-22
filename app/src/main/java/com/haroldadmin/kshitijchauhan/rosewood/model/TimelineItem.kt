@@ -1,4 +1,4 @@
-package com.haroldadmin.kshitijchauhan.rosewood
+package com.haroldadmin.kshitijchauhan.rosewood.model
 
 import android.graphics.drawable.Drawable
 import java.text.SimpleDateFormat

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <group android:checkableBehavior="none">
+
+        <item
+            android:id="@+id/homeNavigationMenu"
+            android:icon="@drawable/ic_outline_home_24px"
+            android:title="Home"/>
+
+        <item
+            android:id="@+id/timelineNavigationMenu"
+            android:icon="@drawable/ic_outline_list_24px"
+            android:title="Timeline"/>
+
+    </group>
+
+</menu>

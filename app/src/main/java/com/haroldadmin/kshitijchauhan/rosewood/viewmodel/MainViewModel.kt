@@ -1,26 +1,26 @@
-package com.haroldadmin.kshitijchauhan.rosewood
+package com.haroldadmin.kshitijchauhan.rosewood.viewmodel
 
 import android.annotation.SuppressLint
 import android.app.Application
-import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
-import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
 import com.bumptech.glide.Glide.init
 import com.google.android.gms.fitness.HistoryClient
-import com.google.android.gms.fitness.data.DataPoint
-import com.google.android.gms.fitness.data.DataSet
 import com.google.android.gms.fitness.data.DataType
 import com.google.android.gms.fitness.request.DataReadRequest
-import io.reactivex.Observable
+import com.haroldadmin.kshitijchauhan.rosewood.model.AppUsage
+import com.haroldadmin.kshitijchauhan.rosewood.model.CombinedLiveData
+import com.haroldadmin.kshitijchauhan.rosewood.model.PhysicalActivity
+import com.haroldadmin.kshitijchauhan.rosewood.model.TimelineItem
+import com.haroldadmin.kshitijchauhan.rosewood.repository.Repository
+import com.haroldadmin.kshitijchauhan.rosewood.utils.*
 import io.reactivex.disposables.CompositeDisposable
-import io.reactivex.schedulers.Schedulers
 import java.util.*
 import java.util.concurrent.TimeUnit
 
@@ -30,11 +30,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 	private val compositeDisposable = CompositeDisposable()
 	private val isPhysicalActivitiesListLoading = MutableLiveData<Boolean>()
 	private val isAppUsageListLoading = MutableLiveData<Boolean>()
-	private val _appUsageItems = MutableLiveData<List<AppUsageItem>>()
-	private val _physicalActivityItems = MutableLiveData<List<PhysicalActivityItem>>()
-	private var _isLoading : CombinedLiveData<Boolean, Boolean, Boolean>
-	private var _combinedItemsList : CombinedLiveData<List<AppUsageItem>, List<PhysicalActivityItem>, List<TimelineItem>>
+	private val _appUsageItems = MutableLiveData<List<AppUsage>>()
+	private val _appUsageTime = MutableLiveData<Long>()
+	private val _physicalActivityItems = MutableLiveData<List<PhysicalActivity>>()
+	private val _physicalActivityTime = MutableLiveData<Long>()
+	private val _totalEngagementTime: CombinedLiveData<Long, Long, Long>
+	private var _isLoading: CombinedLiveData<Boolean, Boolean, Boolean>
+	private var _combinedItemsList: CombinedLiveData<List<AppUsage>, List<PhysicalActivity>, List<TimelineItem>>
 	private val _timelineItems = MediatorLiveData<List<TimelineItem>>()
+	private val repository = Repository()
 
 	val isLoading: LiveData<Boolean>
 		get() = _isLoading
@@ -42,12 +46,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 	val timelineItems: LiveData<List<TimelineItem>>
 		get() = _timelineItems
 
+	val physicalActivityTime: LiveData<Long>
+		get() = _physicalActivityTime
+
+	val appUsageTime: LiveData<Long>
+		get() = _appUsageTime
+
+	val totalEngagementTime: LiveData<Long>
+		get() = _totalEngagementTime
+
 	init {
 		isPhysicalActivitiesListLoading.value = false
 		isAppUsageListLoading.value = false
 		_combinedItemsList = CombinedLiveData(_appUsageItems, _physicalActivityItems) { appUsageItems, physicalActivityItems ->
+			println("List of physical activities: ${physicalActivityItems?.size}, List of appUsages: ${appUsageItems?.size}")
 			val list = mutableListOf<TimelineItem>()
-			list.clear()
 			list.addAll(appUsageItems ?: emptyList())
 			list.addAll(physicalActivityItems ?: emptyList())
 			list.sortByDescending { it.startTime }
@@ -62,6 +75,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 			_timelineItems.value = it.sortedByDescending { timelineItem ->
 				timelineItem.startTime
 			}
+		}
+		_totalEngagementTime = CombinedLiveData(_physicalActivityTime, _appUsageTime) { physicalTime, appTime ->
+			val p = physicalTime ?: 0L
+			val a = appTime ?: 0L
+			p + a
 		}
 	}
 
@@ -82,22 +100,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 	}
 
 	private fun readAppUsageData(packageManager: PackageManager, startTime: Long, endTime: Long) {
-		Observable.fromCallable { usageStatsManager.queryEvents(startTime, endTime) }
-				.flatMap { usageEvents -> Observable.fromIterable(usageEvents.toEventsList()) }
-				.filter { usageEvent -> packageManager.getLaunchIntentForPackage(usageEvent.packageName) != null && (usageEvent.eventType == UsageEvents.Event.MOVE_TO_BACKGROUND || usageEvent.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) }
-				.toList()
-				.map { listOfEvents -> listOfEvents.toAppUsageItemsList(packageManager) }
+		repository.getAppUsagesList(usageStatsManager, startTime, endTime, packageManager)
+				.subscribeOn(AppExecutors.workScheduler)
+				.observeOn(AppExecutors.workScheduler)
 				.doOnSubscribe {
 					isAppUsageListLoading.postValue(true)
 				}
-				.doOnSuccess { listOfTimelineItems ->
+				.doOnSuccess { list ->
+					_appUsageItems.postValue(list)
+					val time = list
+							.asSequence()
+							.map { appUsage -> appUsage._endTime - appUsage._startTime }
+							.reduce { acc, l -> acc + l }
+					_appUsageTime.postValue(time)
 					isAppUsageListLoading.postValue(false)
-					_appUsageItems.postValue(listOfTimelineItems)
 				}
-				.doOnError {
-					Log.d(TAG, "Failed to read app usage items list: ${it.localizedMessage}")
-				}
-				.subscribeOn(AppExecutors.workScheduler)
 				.subscribe()
 				.addToCompositeDisposable(compositeDisposable)
 	}
@@ -109,31 +126,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 				.setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
 				.build()
 
-		historyClient.readData(dataReadRequest)
-				.addOnSuccessListener { dataReadResponse ->
-					Observable.fromIterable(dataReadResponse.dataSets)
-							.filter { dataSet -> !dataSet.isEmpty }
-							.flatMap { dataSet: DataSet -> Observable.fromIterable(dataSet.dataPoints) }
-							.map { dataPoint: DataPoint -> dataPoint.toPhysicalActivityItem(context) }
-							.toList()
-							.subscribeOn(Schedulers.computation())
-							.observeOn(Schedulers.io())
-							.doOnSubscribe {
-								isPhysicalActivitiesListLoading.postValue(true)
-							}
-							.doOnSuccess {
-								isPhysicalActivitiesListLoading.postValue(false)
-								_physicalActivityItems.postValue(it)
-							}
-							.doOnError {
-								Log.e(TAG, "Failed to read fitness data: ${it.localizedMessage}")
-							}
-							.subscribe()
-							.addToCompositeDisposable(compositeDisposable)
+		repository.getPhysicalActivities(dataReadRequest, historyClient, context)
+				.subscribeOn(AppExecutors.workScheduler)
+				.observeOn(AppExecutors.workScheduler)
+				.doOnSubscribe {
+					isPhysicalActivitiesListLoading.postValue(true)
 				}
-				.addOnFailureListener {
-					Log.e(TAG, "Failed to read fitness data: ${it.localizedMessage}")
+				.doOnSuccess { list ->
+					_physicalActivityItems.postValue(list)
+					val time = list
+							.asSequence()
+							.filter { physicalActivity -> physicalActivity.name.toLowerCase() != "still" }
+							.map { physicalActivity ->
+								physicalActivity._endTime - physicalActivity._startTime
+							}
+							.reduce { acc, l -> acc + l }
+					_physicalActivityTime.postValue(time)
+					isPhysicalActivitiesListLoading.postValue(false)
 				}
+				.subscribe { list ->
+					_physicalActivityItems.postValue(list)
+				}
+				.addToCompositeDisposable(compositeDisposable)
 	}
 
 	override fun onCleared() {

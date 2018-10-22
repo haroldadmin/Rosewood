@@ -20,6 +20,7 @@ import com.haroldadmin.kshitijchauhan.rosewood.adapter.TimelineItemAdapter
 import com.haroldadmin.kshitijchauhan.rosewood.model.TimelineItem
 import com.haroldadmin.kshitijchauhan.rosewood.utils.AppExecutors
 import com.haroldadmin.kshitijchauhan.rosewood.viewmodel.MainViewModel
+import kotlinx.android.synthetic.main.fragment_statistics.*
 import kotlinx.android.synthetic.main.fragment_timeline.*
 import kotlinx.coroutines.experimental.*
 import kotlin.coroutines.experimental.CoroutineContext
@@ -95,12 +96,8 @@ class TimelineFragment : Fragment(), CoroutineScope {
 
 		adapter = TimelineItemAdapter(emptyList(), Glide.with(this))
 		layoutManager = LinearLayoutManager(context)
-		dividerItemDecoration = DividerItemDecoration(context, layoutManager.orientation)
-		dividerItemDecoration.setDrawable(ContextCompat.getDrawable(context!!, R.drawable.list_divider)!!)
-
 		timeLineRecyclerView.layoutManager = layoutManager
 		timeLineRecyclerView.adapter = adapter
-		timeLineRecyclerView.addItemDecoration(dividerItemDecoration)
 	}
 
 	private fun setupSwipeRefreshLayout() {

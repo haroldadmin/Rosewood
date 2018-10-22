@@ -37,16 +37,26 @@ class TimelineItemAdapter(var listOfTimeLineItems: List<TimelineItem>, val glide
 		private val itemIcon: ImageView = itemView.findViewById(R.id.itemIconImageview)
 		private val itemStartTime: TextView = itemView.findViewById(R.id.startTimeValueTextview)
 		private val itemEndTime: TextView = itemView.findViewById(R.id.endTimeValueTextview)
+		private val itemType: TextView = itemView.findViewById(R.id.itemTypeTextview)
+		private val scale = itemView.resources.displayMetrics.scaledDensity
 
 		fun bindValues(item: TimelineItem) {
 			itemName.text = item.name
-			glide.load(item.icon).into(itemIcon)
 			itemStartTime.text = item.startTime
 			itemEndTime.text = item.endTime
+			glide.load(item.icon).into(itemIcon)
+			itemType.text = when(item.type) {
+				TimelineItem.TYPE_APP_USAGE -> "App Usage"
+				TimelineItem.TYPE_PHYSICAL_ACTIVITY -> "Physical Activity"
+				else -> "Unknown"
+			}
 			if (item.type == TimelineItem.TYPE_PHYSICAL_ACTIVITY) {
-				background.setBackgroundColor(ContextCompat.getColor(itemView.context, R.color.colorAccentLight))
+				itemIcon.background = ContextCompat.getDrawable(itemView.context, R.drawable.item_icon_background)
+				val padding: Int = (12 * scale + 0.5f).toInt()
+				itemIcon.setPadding(padding, padding, padding, padding)
 			} else {
-				background.setBackgroundColor(ContextCompat.getColor(itemView.context, R.color.colorPrimaryLight))
+				itemIcon.background = null
+				itemIcon.setPadding(0, 0, 0, 0)
 			}
 		}
 	}

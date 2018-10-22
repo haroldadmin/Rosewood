@@ -175,6 +175,9 @@ class MainActivity : AppCompatActivity(),
 			0 -> {
 				supportFragmentManager.beginTransaction().replace(R.id.fragmentContainer, StatisticsFragment(), "StatisticsFragment").commit()
 				fab.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_outline_refresh_24px))
+				fab.setOnClickListener {
+					mainViewModel.loadData(this, Fitness.getHistoryClient(this, lastSignedInAccount!!))
+				}
 			}
 			1 -> {
 				supportFragmentManager.beginTransaction().replace(R.id.fragmentContainer, TimelineFragment(), "StatisticsFragment").commit()
